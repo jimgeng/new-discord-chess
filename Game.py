@@ -8,10 +8,10 @@ if __name__ == '__main__':
     moveString = ""
     # Main loop
     while looping:
-        controller._promotionSquare = []
-        validMoves = controller.calculateValidMoves(controller.calculateAllMoves())
+        controller.clearPromotionSquares()
+        controller.calculateMoves()
         controller.getBoard().prettyPrint()
-        print(validMoves)
+        print(controller.getValidMoves())
         while True:
             if controller.getActiveColor():
                 moveString = input("White Move: ")  # CHANGE THIS FOR DISCORD
@@ -19,7 +19,7 @@ if __name__ == '__main__':
                 moveString = input("Black Move: ")
                 turn += 1
             try:
-                move = controller.processMove(moveString, validMoves)
+                move = controller.processMove(moveString)
                 break
             except Engine.AmbiguousMoveError:
                 print("Please input a move that indicates the starting position.")

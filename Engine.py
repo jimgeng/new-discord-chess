@@ -21,7 +21,6 @@ class Board:
     startingFenString = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
     # startingFenString = "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR"
 
-
     def __init__(self):
         self._grid: list = [[None for _ in range(8)] for _ in range(8)]
 
@@ -77,8 +76,10 @@ class Board:
 class MoveErrors(Exception):
     pass
 
+
 class AmbiguousMoveError(MoveErrors):
     pass
+
 
 class InvalidMoveError(MoveErrors):
     pass
@@ -135,6 +136,10 @@ class GameController:
         self._board.initializeBoard()
         self._activeColor = True
         self._promotionSquare = []
+        self._whiteKingPos = [7, 4]
+        self._blackKingPos = [0, 4]
+        self._moves = []
+        self._attackedSquares = []
 
     # def turnIntoMove(self, moveString) -> Move:
     #     if len(moveString) == 3:
@@ -156,18 +161,24 @@ class GameController:
     def getBoard(self):
         return self._board
 
+    def getValidMoves(self):
+        return self._moves
+
+    def clearPromotionSquares(self):
+        self._promotionSquare = []
+
     def makeMove(self, move: Move):
         piece = self._board.popCell(move.getOriginRow(), move.getOriginCol())
         self._board.editCell(move.getTargetRow(), move.getTargetCol(), piece)
 
-    def processMove(self, moveString, validMoves):
+    def processMove(self, moveString):
         finalizedMove = None
         if len(moveString) == 3:
             targetRow = 8 - int(moveString[2])
             targetCol = ord(moveString[1].lower()) - 97
             targetType = moveString[0]
             move: Move
-            possibleMove = [move for move in validMoves if move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
+            possibleMove = [move for move in self._moves if move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
             if len(possibleMove) == 1:
                 finalizedMove = possibleMove[0]
             elif len(possibleMove) > 1:
@@ -181,25 +192,20 @@ class GameController:
             originCol = ord(moveString[1].lower()) - 97
             targetType = moveString[0]
             possibleMove = Move(originRow, originCol, targetRow, targetCol, targetType)
-            if possibleMove in validMoves:
+            if possibleMove in self._moves:
                 finalizedMove = possibleMove
             else:
                 raise InvalidMoveError
         if finalizedMove is not None:
             self.makeMove(finalizedMove)
 
-    def calculateAllMoves(self):
-        pseudoLegalMoves = []
+    def calculateMoves(self):
         for rowNum, row in enumerate(self._board.getGrid()):
             for colNum, piece in enumerate(row):
                 if piece is not None:
                     piece: Piece
                     if (piece.getColor() and self._activeColor) or (not piece.getColor() and not self._activeColor):
-                        pseudoLegalMoves += self.pieceTypeToFunction[piece.getType()](self, rowNum, colNum)
-        return pseudoLegalMoves
-
-    def calculateValidMoves(self, moves):
-        return moves
+                        self._moves += self.pieceTypeToFunction[piece.getType()](self, rowNum, colNum)
 
     def calculatePawnMoves(self, row: int, col: int):
         moves = []
@@ -264,7 +270,6 @@ class GameController:
             if 0 <= targetRow < 8 and 0 <= targetCol < 8:
                 targetPiece = self._board.getGrid()[targetRow][targetCol]
                 if targetPiece is None:
-                    moveID = row * 512 + col * 64 + targetRow * 8 + targetCol
                     moves.append(Move(row, col, targetRow, targetCol, "n"))
                 else:
                     targetPiece: Piece
@@ -300,8 +305,12 @@ class GameController:
         return moves
 
     def calculateKingMoves(self, row: int, col: int):
-
-        return []
+        directions = ((-1, 0), (1, 0), (0, 1), (0, -1), (-1, 1), (1, 1), (-1, -1), (1, -1))
+        for direction in directions:
+            targetRow = row + direction[0]
+            targetCol = col + direction[1]
+            if (targetRow, targetCol) not in self._attackedSquares:
+                pass
 
     pieceTypeToFunction = {
         "p": calculatePawnMoves,
