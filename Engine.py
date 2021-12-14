@@ -1,3 +1,6 @@
+import copy
+
+
 class Piece:
 
     def __init__(self, color: bool, pieceType: str):
@@ -19,6 +22,7 @@ class Piece:
 
 class Board:
     startingFenString = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+
     # startingFenString = "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR"
 
     def __init__(self):
@@ -135,11 +139,13 @@ class GameController:
         self._board = Board()
         self._board.initializeBoard()
         self._activeColor = True
-        self._promotionSquare = []
-        self._whiteKingPos = [7, 4]
-        self._blackKingPos = [0, 4]
+        self._promotionSquares = []
+        self._whiteKingPos = (7, 4)
+        self._tempWhiteKingPos = tuple()
+        self._blackKingPos = (0, 4)
+        self._tempBlackKingPos = tuple()
         self._moves = []
-        self._attackedSquares = []
+        self._attackedSquares = set()
 
     # def turnIntoMove(self, moveString) -> Move:
     #     if len(moveString) == 3:
@@ -164,12 +170,27 @@ class GameController:
     def getValidMoves(self):
         return self._moves
 
-    def clearPromotionSquares(self):
-        self._promotionSquare = []
+    # def clearPromotionSquares(self):
+    #     self._promotionSquare = []
 
-    def makeMove(self, move: Move):
-        piece = self._board.popCell(move.getOriginRow(), move.getOriginCol())
-        self._board.editCell(move.getTargetRow(), move.getTargetCol(), piece)
+    def makeMove(self, move: Move, customBoard=None):
+        if customBoard is None:
+            board = self._board
+        else:
+            board = customBoard
+        piece = board.popCell(move.getOriginRow(), move.getOriginCol())
+        board.editCell(move.getTargetRow(), move.getTargetCol(), piece)
+        if piece.getType() == "k":
+            if customBoard is None:
+                if piece.getColor():
+                    self._whiteKingPos = (move.getTargetRow(), move.getTargetCol())
+                else:
+                    self._blackKingPos = (move.getTargetRow(), move.getTargetCol())
+            else:
+                if piece.getColor():
+                    self._tempWhiteKingPos = (move.getTargetRow(), move.getTargetCol())
+                else:
+                    self._tempBlackKingPos = (move.getTargetRow(), move.getTargetCol())
 
     def processMove(self, moveString):
         finalizedMove = None
@@ -178,7 +199,8 @@ class GameController:
             targetCol = ord(moveString[1].lower()) - 97
             targetType = moveString[0]
             move: Move
-            possibleMove = [move for move in self._moves if move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
+            possibleMove = [move for move in self._moves if
+                            move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
             if len(possibleMove) == 1:
                 finalizedMove = possibleMove[0]
             elif len(possibleMove) > 1:
@@ -200,75 +222,100 @@ class GameController:
             self.makeMove(finalizedMove)
 
     def calculateMoves(self):
+        self._promotionSquares = []
+        self._moves = []
         for rowNum, row in enumerate(self._board.getGrid()):
             for colNum, piece in enumerate(row):
                 if piece is not None:
                     piece: Piece
-                    if (piece.getColor() and self._activeColor) or (not piece.getColor() and not self._activeColor):
-                        self._moves += self.pieceTypeToFunction[piece.getType()](self, rowNum, colNum)
+                    if piece.getColor() is self._activeColor:
+                        if piece.getType() == "p":
+                            self._moves += self.calculatePawnMoves(rowNum, colNum)
+                        elif piece.getType() == "r":
+                            self._moves += self.calculateRookMoves(rowNum, colNum)
+                        elif piece.getType() == "b":
+                            self._moves += self.calculateBishopMoves(rowNum, colNum)
+                        elif piece.getType() == "n":
+                            self._moves += self.calculateKnightMoves(rowNum, colNum)
+                        elif piece.getType() == "q":
+                            self._moves += self.calculateQueenMoves(rowNum, colNum)
+                        elif piece.getType() == "k":
+                            self._moves += self.calculateKingMoves(rowNum, colNum)
 
-    def calculatePawnMoves(self, row: int, col: int):
+    def calculatePawnMoves(self, row: int, col: int, customPromoList=None, customBoard=None):
         moves = []
+        if customPromoList is None:
+            promotionSquareList = self._promotionSquares
+        else:
+            promotionSquareList = customPromoList
+        if customBoard is None:
+            board = self._board
+        else:
+            board = customBoard
         if self._activeColor and row > 0:
-            if self._board.getGrid()[row - 1][col] is None:
+            if board.getGrid()[row - 1][col] is None:
                 moves.append(Move(row, col, row - 1, col, "p"))
                 if row == 1:
-                    self._promotionSquare.append((row - 1, col))
-                if row == 6 and self._board.getGrid()[row - 2][col] is None:
+                    promotionSquareList.append((row - 1, col))
+                if row == 6 and board.getGrid()[row - 2][col] is None:
                     moves.append(Move(row, col, row - 2, col, "p"))
             if col < 7:
-                enemyPiece = self._board.getGrid()[row - 1][col + 1]
+                enemyPiece = board.getGrid()[row - 1][col + 1]
                 if enemyPiece is not None:
                     enemyPiece: Piece
                     if enemyPiece.getColor() is not self._activeColor:
                         moves.append(Move(row, col, row - 1, col + 1, "p"))
                         if row == 1:
-                            self._promotionSquare.append((row - 1, col + 1))
+                            promotionSquareList.append((row - 1, col + 1))
             if col > 0:
-                enemyPiece = self._board.getGrid()[row - 1][col - 1]
+                enemyPiece = board.getGrid()[row - 1][col - 1]
                 if enemyPiece is not None:
                     enemyPiece: Piece
                     if enemyPiece.getColor() is not self._activeColor:
                         moves.append(Move(row, col, row - 1, col - 1, "p"))
                         if row == 1:
-                            self._promotionSquare.append((row - 1, col - 1))
+                            promotionSquareList.append((row - 1, col - 1))
         else:
-            if self._board.getGrid()[row + 1][col] is None:
+            if board.getGrid()[row + 1][col] is None:
                 moves.append(Move(row, col, row + 1, col, "p"))
                 if row == 6:
-                    self._promotionSquare.append((row + 1, col))
-                if row == 1 and self._board.getGrid()[row + 2][col] is None:
+                    promotionSquareList.append((row + 1, col))
+                if row == 1 and board.getGrid()[row + 2][col] is None:
                     moves.append(Move(row, col, row + 2, col, "p"))
             if col < 7:
-                enemyPiece = self._board.getGrid()[row + 1][col + 1]
+                enemyPiece = board.getGrid()[row + 1][col + 1]
                 if enemyPiece is not None:
                     enemyPiece: Piece
                     if enemyPiece.getColor() is not self._activeColor:
                         moves.append(Move(row, col, row + 1, col + 1, "p"))
                         if row == 6:
-                            self._promotionSquare.append((row + 1, col + 1))
+                            promotionSquareList.append((row + 1, col + 1))
             if col > 0:
-                enemyPiece = self._board.getGrid()[row + 1][col - 1]
+                enemyPiece = board.getGrid()[row + 1][col - 1]
                 if enemyPiece is not None:
                     enemyPiece: Piece
                     if enemyPiece.getColor() is not self._activeColor:
                         moves.append(Move(row, col, row + 1, col - 1, "p"))
                         if row == 6:
-                            self._promotionSquare.append((row + 1, col - 1))
+                            promotionSquareList.append((row + 1, col - 1))
         return moves
 
-    def calculateRookMoves(self, row: int, col: int):
+    def calculateRookMoves(self, row: int, col: int, customBoard=None):
         directions = ((-1, 0), (1, 0), (0, 1), (0, -1))  # up down right left
-        return self.calculateRayMoves(row, col, directions, "r")
+        return self.calculateRayMoves(row, col, directions, "r", customBoard)
 
-    def calculateKnightMoves(self, row: int, col: int):
+    def calculateKnightMoves(self, row: int, col: int, customBoard=None):
+        if customBoard is None:
+            board = self._board
+        else:
+            board = customBoard
         moves = []
         potentialSquares = ((-2, 1), (-1, 2), (1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1))
         for square in potentialSquares:
             targetRow = row + square[0]
             targetCol = col + square[1]
             if 0 <= targetRow < 8 and 0 <= targetCol < 8:
-                targetPiece = self._board.getGrid()[targetRow][targetCol]
+                targetPiece = board.getGrid()[targetRow][targetCol]
                 if targetPiece is None:
                     moves.append(Move(row, col, targetRow, targetCol, "n"))
                 else:
@@ -277,22 +324,26 @@ class GameController:
                         moves.append(Move(row, col, targetRow, targetCol, "n"))
         return moves
 
-    def calculateBishopMoves(self, row: int, col: int):
+    def calculateBishopMoves(self, row: int, col: int, customBoard=None):
         directions = ((-1, 1), (1, 1), (-1, -1), (1, -1))  # up-right down-right up-left down-left
-        return self.calculateRayMoves(row, col, directions, "b")
+        return self.calculateRayMoves(row, col, directions, "b", customBoard)
 
-    def calculateQueenMoves(self, row: int, col: int):
+    def calculateQueenMoves(self, row: int, col: int, customBoard=None):
         directions = ((-1, 0), (1, 0), (0, 1), (0, -1), (-1, 1), (1, 1), (-1, -1), (1, -1))
-        return self.calculateRayMoves(row, col, directions, "q")
+        return self.calculateRayMoves(row, col, directions, "q", customBoard)
 
-    def calculateRayMoves(self, row, col, directions, pieceType):
+    def calculateRayMoves(self, row, col, directions, pieceType, customBoard):
+        if customBoard is None:
+            board = self._board
+        else:
+            board = customBoard
         moves = []
         for direction in directions:
             for times in range(1, 8):
                 targetRow = row + direction[0] * times
                 targetCol = col + direction[1] * times
                 if 0 <= targetRow < 8 and 0 <= targetCol < 8:
-                    targetPiece = self._board.getGrid()[targetRow][targetCol]
+                    targetPiece = board.getGrid()[targetRow][targetCol]
                     if targetPiece is None:
                         moves.append(Move(row, col, targetRow, targetCol, pieceType))
                     else:
@@ -304,19 +355,90 @@ class GameController:
                     break
         return moves
 
-    def calculateKingMoves(self, row: int, col: int):
+    def calculateKingMoves(self, row: int, col: int, customBoard=None):
+        if customBoard is None:
+            board = self._board
+        else:
+            board = customBoard
+        moves = []
         directions = ((-1, 0), (1, 0), (0, 1), (0, -1), (-1, 1), (1, 1), (-1, -1), (1, -1))
         for direction in directions:
             targetRow = row + direction[0]
             targetCol = col + direction[1]
-            if (targetRow, targetCol) not in self._attackedSquares:
-                pass
+            if 0 <= targetRow < 8 and 0 <= targetCol < 8:
+                targetPiece = board.getGrid()[targetRow][targetCol]
+                if targetPiece is None:
+                    moves.append(Move(row, col, targetRow, targetCol, "k"))
+                else:
+                    targetPiece: Piece
+                    if targetPiece.getColor() != self._activeColor:
+                        moves.append(Move(row, col, targetRow, targetCol, "k"))
+            # if considerSafeMovesOnly:
+            #     if (targetRow, targetCol) not in self._attackedSquares:
+            # else:
+            #     moves.append(Move(row, col, targetRow, targetCol, "k"))
+        return moves
 
-    pieceTypeToFunction = {
-        "p": calculatePawnMoves,
-        "r": calculateRookMoves,
-        "n": calculateKnightMoves,
-        "b": calculateBishopMoves,
-        "q": calculateQueenMoves,
-        "k": calculateKingMoves
-    }
+    def calculateValidMoves(self):
+        move: Move
+        for move in list(self._moves):
+            tempBoard = copy.deepcopy(self._board)
+            self.makeMove(move, tempBoard)
+            if self.calculateEnemyMoves(tempBoard):
+                self._moves.remove(move)
+
+    def calculateEnemyMoves(self, tempBoard):
+        for rowNum, row in enumerate(tempBoard.getGrid()):
+            for colNum, piece in enumerate(row):
+                if piece is not None:
+                    piece: Piece
+                    if piece.getColor() is not self._activeColor:
+                        self._activeColor = not self._activeColor
+                        enemyMoves = []
+                        if piece.getType() == "p":
+                            enemyMoves = self.calculatePawnMoves(rowNum, colNum, tempBoard)
+                        elif piece.getType() == "r":
+                            enemyMoves = self.calculateRookMoves(rowNum, colNum, tempBoard)
+                        elif piece.getType() == "b":
+                            enemyMoves = self.calculateBishopMoves(rowNum, colNum, tempBoard)
+                        elif piece.getType() == "n":
+                            enemyMoves = self.calculateKnightMoves(rowNum, colNum, tempBoard)
+                        elif piece.getType() == "q":
+                            enemyMoves = self.calculateQueenMoves(rowNum, colNum, tempBoard)
+                        elif piece.getType() == "k":
+                            enemyMoves = self.calculateKingMoves(rowNum, colNum, tempBoard)
+                        self._activeColor = not self._activeColor
+                        enemyMove: Move
+                        for enemyMove in enemyMoves:
+                            if self._activeColor:
+                                if enemyMove.getTargetRowAndCol() == self._tempWhiteKingPos:
+                                    return True
+                            else:
+                                if enemyMove.getTargetRowAndCol() == self._tempBlackKingPos:
+                                    return True
+
+    # def considerEnemyMoves(self):
+    #     self._attackedSquares = set()
+    #     for rowNum, row in enumerate(self._board.getGrid()):
+    #         for colNum, piece in enumerate(row):
+    #             if piece is not None:
+    #                 piece: Piece
+    #                 if piece.getColor() and not self._activeColor:
+    #                     self._activeColor = not self._activeColor
+    #                     attacks = []
+    #                     if piece.getType() == "p":
+    #                         attacks = self.calculatePawnMoves(rowNum, colNum)
+    #                     elif piece.getType() == "r":
+    #                         attacks = self.calculateRookMoves(rowNum, colNum)
+    #                     elif piece.getType() == "b":
+    #                         attacks = self.calculateBishopMoves(rowNum, colNum)
+    #                     elif piece.getType() == "n":
+    #                         attacks = self.calculateKnightMoves(rowNum, colNum)
+    #                     elif piece.getType() == "q":
+    #                         attacks = self.calculateQueenMoves(rowNum, colNum)
+    #                     elif piece.getType() == "k":
+    #                         attacks = self.calculateKingMoves(rowNum, colNum)
+    #                     attack: Move
+    #                     for attack in attacks:
+    #                         self._attackedSquares.add((attack.getTargetRow(), attack.getTargetCol()))
+    #                     self._activeColor = not self._activeColor
