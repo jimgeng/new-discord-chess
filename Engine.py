@@ -21,9 +21,7 @@ class Piece:
 
 
 class Board:
-    startingFenString = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-
-    # startingFenString = "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR"
+    startingFenString = "2Q2bnr/4p1pq/5pkr/7p/7P/4P3/PPPP1PP1/RNB1KBNR"
 
     def __init__(self):
         self._grid: list = [[None for _ in range(8)] for _ in range(8)]
@@ -142,7 +140,8 @@ class GameController:
         self._promotionSquares = []
         self._whiteKingPos = (7, 4)
         self._tempWhiteKingPos = tuple()
-        self._blackKingPos = (0, 4)
+        # self._blackKingPos = (0, 4)
+        self._blackKingPos = (2, 6)
         self._tempBlackKingPos = tuple()
         self._moves = []
         self._attackedSquares = set()
@@ -167,7 +166,7 @@ class GameController:
     def getBoard(self):
         return self._board
 
-    def getValidMoves(self):
+    def getMoves(self):
         return self._moves
 
     # def clearPromotionSquares(self):
@@ -242,7 +241,7 @@ class GameController:
                         elif piece.getType() == "k":
                             self._moves += self.calculateKingMoves(rowNum, colNum)
 
-    def calculatePawnMoves(self, row: int, col: int, customPromoList=None, customBoard=None):
+    def calculatePawnMoves(self, row: int, col: int, customBoard=None,  customPromoList=None):
         moves = []
         if customPromoList is None:
             promotionSquareList = self._promotionSquares
@@ -382,6 +381,8 @@ class GameController:
     def calculateValidMoves(self):
         move: Move
         for move in list(self._moves):
+            self._tempBlackKingPos = self._blackKingPos
+            self._tempWhiteKingPos = self._whiteKingPos
             tempBoard = copy.deepcopy(self._board)
             self.makeMove(move, tempBoard)
             if self.calculateEnemyMoves(tempBoard):

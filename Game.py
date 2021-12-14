@@ -8,10 +8,12 @@ if __name__ == '__main__':
     moveString = ""
     # Main loop
     while looping:
+        controller.getBoard().prettyPrint()
         controller.calculateMoves()
         controller.calculateValidMoves()
-        controller.getBoard().prettyPrint()
-        print(controller.getValidMoves())
+        print(controller.getMoves())
+        if len(controller.getMoves()) == 0:
+            break
         while True:
             if controller.getActiveColor():
                 moveString = input("White Move: ")  # CHANGE THIS FOR DISCORD
