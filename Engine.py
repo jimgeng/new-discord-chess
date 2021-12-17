@@ -92,6 +92,14 @@ class IncorrectMoveStringLengthError(MoveErrors):
     """When the move string has the wrong length"""
 
 
+class SpecifyPromotionError(MoveErrors):
+    """The player must specify which type to promote to."""
+
+
+class ImpossiblePromotionError(MoveErrors):
+    """If the player tries to promote to a pawn or king"""
+
+
 class Move:
 
     def __init__(self, oR, oC, tR, tC, pieceType):
@@ -170,17 +178,7 @@ class GameController:
         self._attackedSquares = set()
         self._enPassantSquare = tuple()
         self._tempEnPassantSquare = tuple()
-
-    # def turnIntoMove(self, moveString) -> Move:
-    #     if len(moveString) == 3:
-    #         pass  # IMPLEMENT LATER THIS IS HARD AS SHIT TO IMPLEMENT
-    #     elif len(moveString) == 5:
-    #         originCol = ord(moveString[1]) - 97
-    #         originRow = 8 - int(moveString[2])
-    #         targetCol = ord(moveString[3]) - 97
-    #         targetRow = 8 - int(moveString[4])
-    #         moveID = originRow * 512 + originCol * 64 + targetRow * 8 + targetCol
-    #         return Move(originRow, originCol, targetRow, targetCol, moveID)
+        self._promotionType = None
 
     def getActiveColor(self):
         return self._activeColor
@@ -203,18 +201,32 @@ class GameController:
             pawn = board.popCell(move.getOriginRow(), move.getOriginCol())
             board.editCell(move.getTargetRow(), move.getTargetCol(), pawn)
             board.popCell(move.getEnemyRow(), move.getEnemyCol())
-
-        # elif isinstance(move, CastleMove):
-        #     pass
         else:
             piece = board.popCell(move.getOriginRow(), move.getOriginCol())
             board.editCell(move.getTargetRow(), move.getTargetCol(), piece)
+            if piece.getType() == "r":
+                if customBoard is None:
+                    if piece.getColor():
+                        if move.getOriginRow() == 7 and move.getOriginCol() == 7:
+                            self._whiteCastleAvailability[0] = False
+                        if move.getOriginRow() == 7 and move.getOriginCol() == 0:
+                            self._whiteCastleAvailability[1] = False
+                    else:
+                        if move.getOriginRow() == 0 and move.getOriginCol() == 7:
+                            self._blackCastleAvailability[0] = False
+                        if move.getOriginRow() == 0 and move.getOriginCol() == 0:
+                            self._blackCastleAvailability[1] = False
             if piece.getType() == "p":
                 if customBoard is None:
                     if move.getTargetRow() - move.getOriginRow() == 2:
                         self._enPassantSquare = (move.getTargetRow(), move.getTargetCol(), False)
                     elif move.getTargetRow() - move.getOriginRow() == -2:
                         self._enPassantSquare = (move.getTargetRow(), move.getTargetCol(), True)
+                    if piece.getColor() and move.getTargetRow() == 0:
+                        board.editCell(move.getTargetRow(), move.getTargetCol(), Piece(True, self._promotionType))
+                    elif not piece.getColor() and move.getTargetRow() == 7:
+                        board.editCell(move.getTargetRow(), move.getTargetCol(), Piece(False, self._promotionType))
+
                 else:
                     if move.getTargetRow() - move.getOriginRow() == 2:
                         self._tempEnPassantSquare = (move.getTargetRow(), move.getTargetCol(), False)
@@ -224,8 +236,10 @@ class GameController:
                 if customBoard is None:
                     if piece.getColor():
                         self._whiteKingPos = (move.getTargetRow(), move.getTargetCol())
+                        self._whiteCastleAvailability = [False, False]
                     else:
                         self._blackKingPos = (move.getTargetRow(), move.getTargetCol())
+                        self._blackCastleAvailability = [False, False]
                 else:
                     if piece.getColor():
                         self._tempWhiteKingPos = (move.getTargetRow(), move.getTargetCol())
@@ -238,22 +252,36 @@ class GameController:
         moveString = moveString.lower()
         if moveString == "0-0":
             if self._activeColor:
-                canCastle = self._whiteCanCastleThisTurn
+                if self._whiteCanCastleThisTurn[0]:
+                    # predefined values because there can be only one type of white king side castle.
+                    finalizedMoves.append(Move(7, 7, 7, 5, "r"))
+                    finalizedMoves.append(Move(7, 4, 7, 6, "k"))
+                else:
+                    raise InvalidMoveError
             else:
-                canCastle = self._blackCanCastleThisTurn
-            if canCastle[0]:
-                # predefined values because there can be only one type of white king side castle.
-                finalizedMoves.append(Move(7, 7, 7, 5, "r"))
-                finalizedMoves.append(Move(7, 4, 7, 6, "k"))
+                if self._blackCanCastleThisTurn[0]:
+                    finalizedMoves.append(Move(0, 7, 0, 5, "r"))
+                    finalizedMoves.append(Move(0, 4, 0, 6, "k"))
+                else:
+                    raise InvalidMoveError
+        elif moveString == "0-0-0":
+            if self._activeColor:
+                if self._whiteCanCastleThisTurn[1]:
+                    finalizedMoves.append(Move(7, 0, 7, 3, "r"))
+                    finalizedMoves.append(Move(7, 4, 7, 2, "k"))
             else:
-                raise InvalidMoveError
+                if self._blackCanCastleThisTurn[1]:
+                    finalizedMoves.append(Move(0, 0, 0, 3, "r"))
+                    finalizedMoves.append(Move(0, 4, 0, 2, "k"))
         elif len(moveString) == 3:
             try:
                 targetRow = 8 - int(moveString[2])
                 targetCol = ord(moveString[1].lower()) - 97
                 targetType = moveString[0]
             except ValueError:
-                raise ValueError
+                raise InvalidMoveError
+            if targetType == "p" and ((self._activeColor and targetRow == 0) or (not self._activeColor and targetRow == 7)):
+                raise SpecifyPromotionError
             move: Move
             possibleMove = [move for move in self._moves if
                             move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
@@ -261,6 +289,26 @@ class GameController:
                 finalizedMove = possibleMove[0]
             elif len(possibleMove) > 1:
                 raise AmbiguousMoveError
+            else:
+                raise InvalidMoveError
+        elif len(moveString) == 4:
+            if moveString[0] != "p":
+                raise InvalidMoveError
+            try:
+                targetRow = 8 - int(moveString[2])
+                targetCol = ord(moveString[1].lower()) - 97
+                self._promotionType = moveString[3]
+            except ValueError:
+                raise InvalidMoveError
+            if self._promotionType == "p" or self._promotionType == "k":
+                raise ImpossiblePromotionError
+            if (self._activeColor and targetRow != 0) or (not self._activeColor and targetRow != 7):
+                raise InvalidMoveError
+            move: Move
+            for move in self._moves:
+                if move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == "p":
+                    finalizedMove = move
+                    break
             else:
                 raise InvalidMoveError
         elif len(moveString) == 5:
@@ -339,23 +387,59 @@ class GameController:
                                                              self._enPassantSquare[0], self._enPassantSquare[1], "p"))
         # Castling
         if self._activeColor:
-            if self._whiteCastleAvailability[0] and not self.calculateValidMoves(
-                    [Move(self._whiteKingPos[0], self._whiteKingPos[1], self._whiteKingPos[0], self._whiteKingPos[1],
-                          "k")]):
-                # white king side castle check
-                kingSubMoves = []
-                for i in range(1, 3):
-                    if self._board.getGrid()[self._whiteKingPos[0]][self._whiteKingPos[1] + i] is None:
-                        kingSubMoves.append(Move(self._whiteKingPos[0], self._whiteKingPos[1], self._whiteKingPos[0],
-                                                 self._whiteKingPos[1] + i, "k"))
-                    else:
-                        break
-                self.calculateValidMoves(kingSubMoves)
-                if len(kingSubMoves) == 2:
-                    self._whiteCanCastleThisTurn[0] = True
-            if self._whiteCastleAvailability[1]:
-                # white queen side castle check
-                pass
+            kingInCheck = [Move(self._whiteKingPos[0], self._whiteKingPos[1], self._whiteKingPos[0], self._whiteKingPos[1], "k")]
+            self.calculateValidMoves(kingInCheck)
+            if len(kingInCheck) == 1:
+                if self._whiteCastleAvailability[0]:
+                    # white king side castle
+                    kingSubMoves = []
+                    for i in range(1, 3):
+                        if self._board.getGrid()[self._whiteKingPos[0]][self._whiteKingPos[1] + i] is None:
+                            kingSubMoves.append(Move(self._whiteKingPos[0], self._whiteKingPos[1], self._whiteKingPos[0], self._whiteKingPos[1] + i, "k"))
+                        else:
+                            break
+                    self.calculateValidMoves(kingSubMoves)
+                    if len(kingSubMoves) == 2:
+                        self._whiteCanCastleThisTurn[0] = True
+                if self._whiteCastleAvailability[1]:
+                    # white queen side castle
+                    kingSubMoves = []
+                    for i in range(-1, -4, -1):
+                        if self._board.getGrid()[self._whiteKingPos[0]][self._whiteKingPos[1] + i] is None:
+                            kingSubMoves.append(Move(self._whiteKingPos[0], self._whiteKingPos[1], self._whiteKingPos[0], self._whiteKingPos[1] + i, "k"))
+                        else:
+                            break
+                    self.calculateValidMoves(kingSubMoves)
+                    if len(kingSubMoves) == 3:
+                        self._whiteCanCastleThisTurn[1] = True
+        else:
+            kingInCheck = [Move(self._blackKingPos[0], self._blackKingPos[1], self._blackKingPos[0], self._blackKingPos[1], "k")]
+            self.calculateValidMoves(kingInCheck)
+            if len(kingInCheck) == 1:
+                if self._blackCastleAvailability[0]:
+                    # black king side castle
+                    kingSubMoves = []
+                    for i in range(1, 3):
+                        if self._board.getGrid()[self._blackKingPos[0]][self._blackKingPos[1] + i] is None:
+                            kingSubMoves.append(Move(self._blackKingPos[0], self._blackKingPos[1], self._blackKingPos[0], self._blackKingPos[1] + i, "k"))
+                        else:
+                            break
+                    self.calculateValidMoves(kingSubMoves)
+                    if len(kingSubMoves) == 2:
+                        self._blackCanCastleThisTurn[0] = True
+                if self._blackCastleAvailability[1]:
+                    # black queen side castle
+                    kingSubMoves = []
+                    for i in range(-1, -4, -1):
+                        if self._board.getGrid()[self._blackKingPos[0]][self._blackKingPos[1] + i] is None:
+                            kingSubMoves.append(Move(self._blackKingPos[0], self._blackKingPos[1], self._blackKingPos[0], self._blackKingPos[1] + i, "k"))
+                        else:
+                            break
+                    self.calculateValidMoves(kingSubMoves)
+                    if len(kingSubMoves) == 3:
+                        self._blackCanCastleThisTurn[1] = True
+
+
 
     def calculatePawnMoves(self, row: int, col: int, customBoard=None, customPromoList=None):
         moves = []

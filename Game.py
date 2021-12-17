@@ -8,12 +8,12 @@ if __name__ == '__main__':
     moveString = ""
     # Main loop
     while looping:
-        print(controller._enPassantSquare)
+        # print(controller._enPassantSquare)
         controller.calculateMoves()
         controller.calculateSpecialMoves()
         controller.calculateValidMoves()
         controller.getBoard().prettyPrint()
-        print(controller.getMoves())
+        # print(controller.getMoves())
         if len(controller.getMoves()) == 0:
             break
         while True:
@@ -29,10 +29,12 @@ if __name__ == '__main__':
                 print("Please input a move that indicates the starting position.")
             except Engine.InvalidMoveError:
                 print("Please input a valid move.")
-            except ValueError:
-                print("Please input a valid move.")
             except Engine.IncorrectMoveStringLengthError:
                 print("Please use either the 3 character notation or the 5 character notation")
+            except Engine.SpecifyPromotionError:
+                print("Please specify the type of piece you would like to promote your pawn to.")
+            except Engine.ImpossiblePromotionError:
+                print("You cannot promote to a king or pawn.")
         controller.setActiveColor(not controller.getActiveColor())
     mate = controller.inCheck()
     if mate:
