@@ -3,27 +3,32 @@ import Engine
 if __name__ == '__main__':
     # Setup
     controller = Engine.GameController()
-    looping = True
     turn = 0
     moveString = ""
     # Main loop
-    while looping:
-        # print(controller._enPassantSquare)
+    while True:
+        # Calculate all moves that the player can make
         controller.calculateMoves()
+        # Calculate the special moves that the players can make (En Passant, Castle, Promotion)
         controller.calculateSpecialMoves()
+        # Filters out any invalid moves in the current player's generated move set.
         controller.calculateValidMoves()
+        # Prints out the board for the user to see
         controller.getBoard().prettyPrint()
-        # print(controller.getMoves())
+        # If there are no moves left, someone has won or it is a stalemate
         if len(controller.getMoves()) == 0:
             break
+
+        # Input loop
         while True:
             if controller.getActiveColor():
-                moveString = input("White Move: ")  # CHANGE THIS FOR DISCORD
+                moveString = input("White Move: ")
             else:
                 moveString = input("Black Move: ")
                 turn += 1
+            # Error handling for various invalid inputs.
             try:
-                controller.processMove(moveString)
+                controller.processMove(moveString) # This attempts to make the move.
                 break
             except Engine.AmbiguousMoveError:
                 print("Please input a move that indicates the starting position.")
@@ -35,6 +40,7 @@ if __name__ == '__main__':
                 print("Please specify the type of piece you would like to promote your pawn to.")
             except Engine.ImpossiblePromotionError:
                 print("You cannot promote to a king or pawn.")
+        # Change color after the inputted move has been made
         controller.setActiveColor(not controller.getActiveColor())
     mate = controller.inCheck()
     if mate:
