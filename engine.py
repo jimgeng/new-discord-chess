@@ -33,6 +33,26 @@ class Board:
     def __init__(self):
         self._grid: list = [[None for _ in range(8)] for _ in range(8)]
 
+    def __str__(self):
+        boardStr = "    A   B   C   D   E   F   G   H\n  ╔═══╦═══╦═══╦═══╦═══╦═══╦═══╦═══╗\n"
+        for i, row in enumerate(self._grid):
+            boardStr += f"{8-i} ║"
+            piece: Piece
+            for j, piece in enumerate(row):
+                if piece is None:
+                    if (i + j) % 2 == 0:
+                        boardStr += "   ║"
+                    else:
+                        boardStr += "░░░║"
+                else:
+                    # boardStr += f" {piece} ║"
+                    boardStr += f" {piece} ║"
+            boardStr += "\n"
+            if i < 7:
+                boardStr += "  ╠═══╬═══╬═══╬═══╬═══╬═══╬═══╬═══╣\n"
+        boardStr += "  ╚═══╩═══╩═══╩═══╩═══╩═══╩═══╩═══╝"
+        return boardStr
+
     def popCell(self, row: int, col: int) -> Piece:
         """Returns and removes element from the specified position on the board"""
         temp: Piece = self._grid[row][col]
@@ -70,23 +90,24 @@ class Board:
         Prints out the board with pretty colors for the pieces if the terminal
         is modern enough, and also shows the coordinates.
         """
-        print("  A B C D E F G H  ")
-        rowCount = 8
-        for row in self._grid:
-            print(rowCount, end=" ")
-            piece: Piece
-            for piece in row:
-                if piece is None:
-                    print("0", end=" ")
-                else:
-                    if piece.getColor():
-                        color = "\033[96m"
-                    else:
-                        color = "\033[92m"
-                    print(f"{color}{piece}\033[0m", end=" ")
-            print(str(rowCount))
-            rowCount -= 1
-        print("  A B C D E F G H  ")
+        # print("  A B C D E F G H  ")
+        # rowCount = 8
+        # for row in self._grid:
+        #     print(rowCount, end=" ")
+        #     piece: Piece
+        #     for piece in row:
+        #         if piece is None:
+        #             print("0", end=" ")
+        #         else:
+        #             if piece.getColor():
+        #                 color = "\033[96m"
+        #             else:
+        #                 color = "\033[92m"
+        #             print(f"{color}{piece}\033[0m", end=" ")
+        #     print(str(rowCount))
+        #     rowCount -= 1
+        # print("  A B C D E F G H  ")
+        print(self)
 
     def getGrid(self):
         return self._grid
@@ -235,6 +256,7 @@ class GameController:
         finalizedMove = None  # single move to be made for most cases
         finalizedMoves = []  # move list for things castling
         moveString = moveString.lower()
+        returnedString =""
         # when castling happens, theres 2 moves that happen simultaneously
         # the rook moves to a position 1 square away from the king, and then the king hops over the rook.
         if moveString == "0-0":
@@ -251,6 +273,7 @@ class GameController:
                     finalizedMoves.append(Move(0, 4, 0, 6, "k"))
                 else:
                     raise InvalidMoveError
+            returnedString = "0-0"
         elif moveString == "0-0-0":
             # queenside castling
             if self._activeColor:
@@ -261,6 +284,26 @@ class GameController:
                 if self._blackCanCastleThisTurn[1]:
                     finalizedMoves.append(Move(0, 0, 0, 3, "r"))
                     finalizedMoves.append(Move(0, 4, 0, 2, "k"))
+            returnedString = "0-0-0"
+        elif len(moveString) == 2:
+            try:
+                targetRow = 8 - int(moveString[1])
+                targetCol = ord(moveString[0].lower()) - 97
+                targetType = "p"
+            except ValueError:
+                raise InvalidMoveError
+            if (self._activeColor and targetRow == 0) or (not self._activeColor and targetRow == 7):
+                raise SpecifyPromotionError
+            move: Move
+            possibleMove = [move for move in self._moves if
+                            move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == targetType]
+            if len(possibleMove) == 1:
+                # only make the move if there is one option
+                finalizedMove = possibleMove[0]
+            elif len(possibleMove) > 1:
+                raise AmbiguousMoveError
+            else:
+                raise InvalidMoveError
         elif len(moveString) == 3:
             # This is a move entered without the starting position
             # The program searches through all available moves to see if there are any moves
@@ -311,7 +354,7 @@ class GameController:
             else:
                 raise InvalidMoveError
         elif len(moveString) == 5:
-            # can be used normally, but mainly used to distinguish between ambigious 3 character moves.
+            # can be used normally, but mainly used to distinguish between ambiguous 3 character moves.
             targetRow = 8 - int(moveString[4])
             targetCol = ord(moveString[3].lower()) - 97
             originRow = 8 - int(moveString[2])
@@ -330,9 +373,12 @@ class GameController:
         # finally, make the move/moves
         if finalizedMove is not None:
             self.makeMove(finalizedMove)
+            returnedString = str(finalizedMove.__repr__())
         if len(finalizedMoves) != 0:
             for move in finalizedMoves:
                 self.makeMove(move)
+        return returnedString
+
 
     def makeMove(self, move, customBoard=None):
         """

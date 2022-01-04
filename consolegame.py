@@ -1,8 +1,8 @@
-import Engine
+import engine
 
 if __name__ == '__main__':
     # Setup
-    controller = Engine.GameController()
+    controller = engine.GameController()
     turn = 0
     moveString = ""
     # Main loop
@@ -30,15 +30,15 @@ if __name__ == '__main__':
             try:
                 controller.processMove(moveString) # This attempts to make the move.
                 break
-            except Engine.AmbiguousMoveError:
+            except engine.AmbiguousMoveError:
                 print("Please input a move that indicates the starting position.")
-            except Engine.InvalidMoveError:
+            except engine.InvalidMoveError:
                 print("Please input a valid move.")
-            except Engine.IncorrectMoveStringLengthError:
+            except engine.IncorrectMoveStringLengthError:
                 print("Please use either the 3 character notation or the 5 character notation")
-            except Engine.SpecifyPromotionError:
+            except engine.SpecifyPromotionError:
                 print("Please specify the type of piece you would like to promote your pawn to.")
-            except Engine.ImpossiblePromotionError:
+            except engine.ImpossiblePromotionError:
                 print("You cannot promote to a king or pawn.")
         # Change color after the inputted move has been made
         controller.setActiveColor(not controller.getActiveColor())
