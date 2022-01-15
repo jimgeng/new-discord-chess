@@ -5,7 +5,7 @@ import random
 
 class Game:
 
-    def __init__(self, p1: discord.Member, p2: discord.Member):
+    def __init__(self, p1: discord.Member, p2: discord.Member, time, inc):
         h,s,l = random.random(), 0.75 + random.random() / 4, 0.4 + random.random() / 5.0
         rgb = colorsys.hls_to_rgb(h,l,s)
         self.hexcolor = int(rgb[0]*255) * 65536 + int(rgb[1]*255) * 256 + int(rgb[2]*255)
@@ -15,7 +15,11 @@ class Game:
         self.controller = engine.GameController()
         self.processTurn()
         self.lastMove = "No moves have been made yet."
-
+        self.moveTimes = {
+            p1.id: time,
+            p2.id: time
+        }
+        self.timeIncrement = inc
 
     def processTurn(self):
         self.controller.calculateMoves()
@@ -48,13 +52,17 @@ class Game:
         except engine.ImpossiblePromotionError:
             return "You cannot promote to a king or pawn."
 
-
-
     def getActivePlayer(self):
         if self.controller.getActiveColor():
             return self.player1
         else:
             return self.player2
+
+    def getNotActivePlayer(self):
+        if self.controller.getActiveColor():
+            return self.player2
+        else:
+            return self.player1
 
     def getBoardString(self):
         return str(self.controller.getBoard())
