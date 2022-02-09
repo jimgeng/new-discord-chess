@@ -40,10 +40,14 @@ def getGameEmbed(game: discordgame.Game):
 
 
 def endGame(game: discordgame.Game, gameResult):
-    global games, gameHistory
+    global games, gameHistory, elo, gameHistory
     games.pop(game.player1.id)
     games.pop(game.player2.id)
     gameHistory.append(gameResult)
+    with open("elo.json", "w") as elojson:
+        json.dump(elo, elojson)
+    with open("match_history.json", "w") as historyjson:
+        json.dump(gameHistory, historyjson)
     del moveTimers[game.player1.id]
     del moveTimers[game.player2.id]
     del game
@@ -149,16 +153,19 @@ async def on_message(message: discord.Message):
         return
     text: str = message.content
     if text[0] == ".":
-        if (text[1:].split(" "))[0].lower() in ["c", "chess", "m", "move", "i", "info", "h", "history", "a", "accept", "d", "decline", "r", "resign"]:
+        if (text[1:].split(" "))[0].lower() in ["c", "chess", "challenge", "m", "move", "i", "info", "h", "history", "a", "accept", "d", "decline", "r", "resign", "die", "e", "elo"]:
             await bot.process_commands(message)
         else:
             await actualMove(message.author, message.channel, text[1:], "onmessage")
 
 
-@bot.command(aliases=["c", "Chess", "C"])
+@bot.command(aliases=["c", "Chess", "C", "challenge", "Challenge"])
 async def chess(ctx: commands.Context, otherUser: discord.Member, color="w", startingMoveTime=600, increments=0):
     global games, challenges, elo
     messageUser: discord.Member = ctx.author
+    if otherUser == bot.user:
+        await ctx.send("You cannot challenge the bot to a game!")
+        return
     if color not in "wb":
         await ctx.send("Please specify a valid colour you would like to use.")
         return
@@ -263,6 +270,14 @@ async def die(ctx: commands.Context):
 @bot.command(aliases=["r", "Resign", "R"])
 async def resign(ctx: commands.Context):
     await actualMove(ctx.author, ctx, "resign", "command")
+
+
+@bot.command(aliases=["e", "ELO", "E"])
+async def elo(ctx: commands.Context, user: discord.Member=None):
+    global elo
+    if user is None:
+        user = ctx.author
+    await ctx.send(f"{user.display_name}'s elo rating is: {elo[str(user.id)]}")
 
 if __name__ == '__main__':
     bot.run(TOKEN)
