@@ -61,6 +61,19 @@ async def actualMove(author, contextOrChannel, moveString, source):
     if game.getActivePlayer() != author:
         await contextOrChannel.send("It is not your turn to move yet.")
         return
+    if author.id == game.player1.id:
+        otherPlayer = game.player2
+    else:
+        otherPlayer = game.player1
+    if moveString == "resign":
+        await contextOrChannel.send(f"{author.display_name} resigned the chess game.")
+        elo[author.id] -= 5
+        elo[otherPlayer.id] += 5
+        time = datetime.datetime.now()
+        if author == game.player2:
+            result = f"{game.player1.display_name} won against {game.player2.display_name} at {time}"
+        else:
+            result = f"{game.player1.display_name} lost against {game.player2.display_name} at {time}"
     # only makes move if there is no error, otherwise the error is returned
     error = game.move(moveString)
     if error is not None:
@@ -71,10 +84,6 @@ async def actualMove(author, contextOrChannel, moveString, source):
         moveTimers[author.id].cancel()
     await contextOrChannel.send(f"Your move is: {moveString}")
     await contextOrChannel.send(embed=getGameEmbed(game))
-    if author.id == game.player1.id:
-        otherPlayer = game.player2
-    else:
-        otherPlayer = game.player1
     moveTimers[otherPlayer.id] = asyncio.create_task(asyncio.sleep(game.moveTimes[otherPlayer.id]))
     startingMoveTime = datetime.datetime.now()
     try:
@@ -140,7 +149,7 @@ async def on_message(message: discord.Message):
         return
     text: str = message.content
     if text[0] == ".":
-        if (text[1:].split(" "))[0].lower() in ["c", "chess", "m", "move", "i", "info", "h", "history", "a", "accept", "d", "decline"]:
+        if (text[1:].split(" "))[0].lower() in ["c", "chess", "m", "move", "i", "info", "h", "history", "a", "accept", "d", "decline", "r", "resign"]:
             await bot.process_commands(message)
         else:
             await actualMove(message.author, message.channel, text[1:], "onmessage")
@@ -201,10 +210,10 @@ async def decline(ctx: commands.Context):
     respondToChallenge(ctx, False)
 
 
-# @chess.error
-# async def chess_error(ctx, error):
-#     if isinstance(error, commands.MissingRequiredArgument):
-#         await ctx.send("Please specify the user you would like to challenge.")
+@chess.error
+async def chess_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please specify the user you would like to challenge.")
 
 
 @bot.command(aliases=["m", "Move", "M"])
@@ -249,6 +258,11 @@ async def die(ctx: commands.Context):
     with open("match_history.json", "w") as historyjson:
         json.dump(gameHistory, historyjson)
     exit()
+
+
+@bot.command(aliases=["r", "Resign", "R"])
+async def resign(ctx: commands.Context):
+    await actualMove(ctx.author, ctx, "resign", "command")
 
 if __name__ == '__main__':
     bot.run(TOKEN)
