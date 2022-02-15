@@ -277,7 +277,10 @@ async def elo(ctx: commands.Context, user: discord.Member=None):
     global elo
     if user is None:
         user = ctx.author
-    await ctx.send(f"{user.display_name}'s elo rating is: {elo[str(user.id)]}")
+    if elo[str(user.id)] is None:
+        await ctx.send("The player you want to see rating for has not played a game yet.")
+        return
+    await ctx.send(f"{user.display_name}'s rating is: {elo[str(user.id)]}")
 
 if __name__ == '__main__':
     bot.run(TOKEN)
