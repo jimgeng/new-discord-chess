@@ -26,7 +26,7 @@ bot = commands.Bot(
 
 def getGameEmbed(game: discordgame.Game):
     embed = discord.Embed(title=f"Chess: {game.player1.display_name} vs {game.player2.display_name}",
-                          description=f"```{game.getBoardString()}```", color=game.hexcolor)
+                          description=f"```{game.getBoardString()}```", color=game.getHexColor())
     embed.add_field(name=f"{game.player1.display_name} remaining move time:",
                     value=f"{game.moveTimes[game.player1.id] // 60} minutes {game.moveTimes[game.player1.id] % 60} seconds")
     embed.add_field(name=f"{game.player2.display_name} remaining move time:",
@@ -35,7 +35,7 @@ def getGameEmbed(game: discordgame.Game):
         color = "White"
     else:
         color = "Black"
-    embed.set_footer(text=f"Turn: {game.turnNum}, Last move: {game.lastMove}, Current Turn: {game.getActivePlayer().display_name} ({color})")
+    embed.set_footer(text=f"Turn: {game.getTurnNum()}, Last move: {game.getLastMove()}, Current Turn: {game.getActivePlayer().display_name} ({color})")
     return embed
 
 
@@ -79,7 +79,7 @@ async def actualMove(author, contextOrChannel, moveString, source):
         else:
             result = f"{game.player1.display_name} lost against {game.player2.display_name} at {time}"
     # only makes move if there is no error, otherwise the error is returned
-    error = game.move(moveString)
+    error = game.attemptMove(moveString)
     if error is not None:
         await contextOrChannel.send(error)
         return

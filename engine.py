@@ -170,9 +170,6 @@ class Move:
     def getMoveID(self):
         return self._moveID
 
-    def getTargetRowAndCol(self):
-        return self._targetRow, self._targetCol
-
     def getPieceType(self):
         return self._pieceType
 
@@ -202,14 +199,14 @@ class EnPassantMove(Move):
 
     def __init__(self, oR, oC, tR, tC, eR, eC, pieceType):
         super().__init__(oR, oC, tR, tC, pieceType)
-        self.enemyRow = eR
-        self.enemyCol = eC
+        self._enemyRow = eR
+        self._enemyCol = eC
 
     def getEnemyRow(self):
-        return self.enemyRow
+        return self._enemyRow
 
     def getEnemyCol(self):
-        return self.enemyCol
+        return self._enemyCol
 
 
 class GameController:
@@ -348,7 +345,7 @@ class GameController:
                 raise InvalidMoveError
             move: Move
             for move in self._moves:
-                if move.getTargetRowAndCol() == (targetRow, targetCol) and move.getPieceType() == "p":
+                if (move.getTargetRow, move.getTargetCol) == (targetRow, targetCol) and move.getPieceType() == "p":
                     finalizedMove = move
                     break
             else:
@@ -378,7 +375,6 @@ class GameController:
             for move in finalizedMoves:
                 self.makeMove(move)
         return returnedString
-
 
     def makeMove(self, move, customBoard=None):
         """
@@ -614,10 +610,10 @@ class GameController:
                     for enemyMove in enemyMoves:
                         # if the king can be captured, return True.
                         if self._activeColor:
-                            if enemyMove.getTargetRowAndCol() == self._tempWhiteKingPos:
+                            if (enemyMove.getTargetRow(), enemyMove.getTargetCol()) == self._tempWhiteKingPos:
                                 return True
                         else:
-                            if enemyMove.getTargetRowAndCol() == self._tempBlackKingPos:
+                            if (enemyMove.getTargetRow(), enemyMove.getTargetCol()) == self._tempBlackKingPos:
                                 return True
 
     def inCheck(self):
